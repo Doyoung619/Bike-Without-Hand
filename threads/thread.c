@@ -290,11 +290,14 @@ thread_create (const char *name, int priority,
 	// 이를 통해 thread 할당 시스템은 철저한 계급사회-먹던것도 강탈해가는
 	// 아주 극악무도한 카스트 제도임을 확증할수 있음.
 
-	int current_threads_priority = thread_current () -> priority;
-	int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem)->priority;
-	if (!list_empty (&ready_list) && current_threads_priority < ready_thread_priority) {
-		thread_yield ();
+	if (!list_empty (&ready_list)) {
+		int current_threads_priority = thread_current () -> priority;
+		int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem)->priority;
+		if(current_threads_priority < ready_thread_priority) {
+			thread_yield();
+		}
 	}
+	
 	return tid;
 }
 
@@ -414,11 +417,12 @@ void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
 	// 이거 그 아까 running 하던애꺼 뺏어가는거 여기도반영하기
-	
-	int current_threads_priority = thread_current () -> priority;
-	int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem) -> priority;
-	if (!list_empty (&ready_list) && current_threads_priority < ready_thread_priority) {
-		thread_yield ();
+	if (!list_empty (&ready_list)) {
+		int current_threads_priority = thread_current () -> priority;
+		int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem)->priority;
+		if(current_threads_priority < ready_thread_priority) {
+			thread_yield();
+		}
 	}
 }
 
