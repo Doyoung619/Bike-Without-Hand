@@ -29,6 +29,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List for save the threads that does not reach to ticks.*/
 static struct list sleep_list;
 
 
@@ -142,20 +143,30 @@ thread_start (void) {
 void
 thread_sleep (int64_t ticks)
 {
-  struct thread *cur;
+  struct thread *current_thread = thread_current();
+  // yield에서 자체복사함
   enum intr_level old_level;
 
   old_level = intr_disable ();	// 인터럽트 off
-  cur = thread_current ();
   
-  ASSERT (cur != idle_thread);
+  ASSERT (current_thread != idle_thread);
 
-  cur->wakeup = ticks;			// 일어날 시간을 저장
-  list_push_back (&sleep_list, &cur->elem);	// sleep_list 에 추가
+  current_thread->wakeup = ticks;			// 일어날 시간을 저장
+  // sleep list 에 current_thread가 들어가야 함.
+
+ // sleep list 에 current_thread 낑구기
+  struct list_elem *before = sleep_list.tail.prev; 
+  before->next = &current_thread->elem;             
+  current_thread->elem.prev = before;              
+  current_thread->elem.next = &sleep_list.tail;     
+  sleep_list.tail.prev = &current_thread->elem;     
+  
   thread_block ();				// block 상태로 변경
 
-  intr_set_level (old_level);	// 인터럽트 on
+  intr_set_level (old_level);	// 인터럽트 실행하기
 }
+
+/*T*/
 
 /* thread/thread.c */
 void
@@ -164,8 +175,8 @@ thread_awake (int64_t ticks)
   struct list_elem *e = list_begin (&sleep_list);
 
   while (e != list_end (&sleep_list)){
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (t->wakeup <= ticks){	// 스레드가 일어날 시간이 되었는지 확인
+    struct thread *t = list_entry (e, struct thread, elem); // 여기서 threaed list entry 조짐
+	if (t->wakeup <= ticks){	// 스레드가 일어날 시간이 되었는지 확인 --> 정확히는 t->wakeup으로 현시점 ticks
       e = list_remove (e);	// sleep list 에서 제거
       thread_unblock (t);	// 스레드 unblock
     }
