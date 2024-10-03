@@ -168,6 +168,33 @@ thread_sleep (int64_t ticks)
 
 /*T*/
 
+bool 
+thread_priority_sort (struct list_elem *high, struct list_elem *low, void *aux UNUSED)
+{
+    // l에서 thread 구조체로 변환하여 우선순위를 가져옴
+    struct thread *thread_high = list_entry(high, struct thread, elem);
+    int priority_high = thread_high->priority;
+
+    // s에서 thread 구조체로 변환하여 우선순위를 가져옴
+    struct thread *thread_low = list_entry(low, struct thread, elem);
+    int priority_low = thread_low->priority;
+
+    // 두 우선순위를 비교함
+    bool result;
+    if (priority_high > priority_low)
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+
+    // 최종 결과 반환
+    return result;
+}
+
+
 /* thread/thread.c */
 void
 thread_awake (int64_t ticks)
@@ -258,7 +285,16 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
+	// 만약에 current thread의 priority가, ready_list의 맨 앞의 (정렬됨)
+	// thread 보다 priority가 낮으면 CPU를 강탈하여 수여한다
+	// 이를 통해 thread 할당 시스템은 철저한 계급사회-먹던것도 강탈해가는
+	// 아주 극악무도한 카스트 제도임을 확증할수 있음.
 
+	int current_threads_priority = thread_current () -> priority;
+	int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem)->priority;
+	if (!list_empty (&ready_list) && current_threads_priority < ready_thread_priority) {
+		thread_yield ();
+	}
 	return tid;
 }
 
@@ -292,7 +328,14 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	// 지금 이거처럼 무지성으로 ready_list 꼬다리에
+	// push_back 할께 아니라
+	// priority order에 맞게 ready_list를 재구성해야댐
+	// 따라서 list push back 말고 priority 맞게 sorting 필요
+	// thread_unblock 하고 thread_yield 두개 다 priority 고쳐서 해야될듯.
+	list_insert_ordered(&ready_list, &t->elem,thread_priority_sort, 0);
+	//list_push_back (&ready_list, &t->elem);
+
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -355,7 +398,13 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		// 지금은 push back으로 current thread를 그냥 그대로 갖다 낑구고 있는데
+		// 그럴께 아니라 priority compare를 해줘서
+		// 순서대로 내림차순 ready_list 를 만들어 줘야함.
+		// list_priority_considering (&ready_list, &curr->elem)
+		// 근데 보니깐 이거 쓸만한 코드 라이브러리에 있는거같음 그거 쓰도록 하게씀
+		// list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem,thread_priority_sort, 0);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -364,6 +413,13 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	// 이거 그 아까 running 하던애꺼 뺏어가는거 여기도반영하기
+	
+	int current_threads_priority = thread_current () -> priority;
+	int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem) -> priority;
+	if (!list_empty (&ready_list) && current_threads_priority < ready_thread_priority) {
+		thread_yield ();
+	}
 }
 
 /* Returns the current thread's priority. */
