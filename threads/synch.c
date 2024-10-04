@@ -57,6 +57,48 @@ sema_init (struct semaphore *sema, unsigned value) {
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. This is
    sema_down function. */
+
+bool 
+thread_priority_sort (struct list_elem *high, struct list_elem *low, void *aux UNUSED)
+{
+    // l에서 thread 구조체로 변환하여 우선순위를 가져옴
+    struct thread *thread_high = list_entry(high, struct thread, elem);
+    int priority_high = thread_high->priority;
+
+    // s에서 thread 구조체로 변환하여 우선순위를 가져옴
+    struct thread *thread_low = list_entry(low, struct thread, elem);
+    int priority_low = thread_low->priority;
+
+    // 두 우선순위를 비교함
+    bool result;
+    if (priority_high > priority_low)
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+
+    // 최종 결과 반환
+    return result;
+}
+
+// 여기 좀 이따가 다시 보자
+bool 
+sema_priority (const struct list_elem *high, const struct list_elem *low, void *aux UNUSED)
+{
+	struct semaphore_elem *high_sema = list_entry (high, struct semaphore_elem, elem);
+	struct semaphore_elem *low_sema = list_entry (low, struct semaphore_elem, elem);
+
+	struct list *waiter_high_sema = &(high_sema->semaphore.waiters);
+	struct list *waiter_low_sema = &(low_sema->semaphore.waiters);
+
+	return list_entry (list_begin (waiter_high_sema), struct thread, elem)->priority
+		 > list_entry (list_begin (waiter_low_sema), struct thread, elem)->priority;
+}
+
+
 void
 sema_down (struct semaphore *sema) {
 	enum intr_level old_level;
@@ -66,12 +108,14 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		//list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &thread_current ()->elem,thread_priority_sort, 0);
 		thread_block ();
 	}
 	sema->value--;
 	intr_set_level (old_level);
 }
+// P 연산은 sleep 과 동일. 그래서 걍 thread block이라 그 머냐 priority 된 thread 별로 순서 지정해서 thread block 하면됨
 
 /* Down or "P" operation on a semaphore, but only if the
    semaphore is not already 0.  Returns true if the semaphore is
@@ -110,11 +154,23 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	if (!list_empty (&sema->waiters))
+		// inserted
+		list_sort(&sema->waiters, thread_priority_sort, 0);
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 	sema->value++;
+	// 현재 실행중인 쓰레드 보다 더 우선순위 있는 쓰레드한테 CPU 맥이기하는 코드
+	if (!list_empty (&ready_list)) {
+		int current_threads_priority = thread_current () -> priority;
+		int ready_thread_priority = list_entry (list_front (&ready_list), struct thread, elem)->priority;
+		if(current_threads_priority < ready_thread_priority) {
+			thread_yield();
+		}
+	}
 	intr_set_level (old_level);
 }
+
+// 근데 이제 V연산은 awake, 그니까 대기중인 스레드를 깨우는 거라서, 그 CPU 우선순위 먹이기랑 list sorting 다 필요함
 
 static void sema_test_helper (void *sema_);
 
@@ -282,7 +338,8 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	sema_init (&waiter.semaphore, 0);
-	list_push_back (&cond->waiters, &waiter.elem);
+	// list_push_back (&cond->waiters, &waiter.elem);
+	list_insert_ordered(&cond->waiters, &waiter.elem, sema_priority, 0);
 	lock_release (lock);
 	sema_down (&waiter.semaphore);
 	lock_acquire (lock);
@@ -303,6 +360,8 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	if (!list_empty (&cond->waiters))
+		// inserted
+		list_sort (&cond->waiters, sema_priority, 0);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
 }
