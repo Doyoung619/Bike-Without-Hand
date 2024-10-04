@@ -110,11 +110,12 @@ thread_init (void) {
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
-	list_init (&destruction_req);
 	list_init (&sleep_list);
+
+	list_init (&destruction_req);
 	
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -144,21 +145,21 @@ thread_sleep (int64_t ticks)
 {
   struct thread *current_thread = thread_current();
   enum intr_level old_level;
-  Assert(!intr_context ());
-  old_level = intr_disable ();	// 인터럽트 off
-  // Copied from thread_yield code
+//   Assert(!intr_context ());
+  old_level = intr_disable (); // disable interrupt
+  // Copied from thread_yield code 
 
-  current_thread->wakeup = ticks;			// 일어날 시간을 저장
+  current_thread->wakeup = ticks;
 
   // sleep list 에 current_thread 끼우기 구현 (list insert 참고)
-  struct list_elem *before = sleep_list.tail.prev; 
-  before->next = &current_thread->elem;             
-  current_thread->elem.prev = before;              
-  current_thread->elem.next = &sleep_list.tail;     
-  sleep_list.tail.prev = &current_thread->elem;     
+  struct list_elem *before = sleep_list.tail.prev;
+  before->next = &current_thread->elem;
+  current_thread->elem.prev = before;
+  current_thread->elem.next = &sleep_list.tail;
+  sleep_list.tail.prev = &current_thread->elem;
   
-  thread_block ();				// block 상태로 변경 --> sleep 이니까!!
-  intr_set_level (old_level);	// 인터럽트 실행하기
+  thread_block ();				// make thread sleep 이니까!!
+  intr_set_level (old_level);	// enable interrupt
 }
 
 /*T*/
@@ -196,6 +197,7 @@ thread_awake (int64_t ticks)
 {
   struct list_elem *e = list_begin (&sleep_list);
 
+	// go around sleep_list and check if there is thread that slept enough
   while (e != list_end (&sleep_list)){
     struct thread *t = list_entry (e, struct thread, elem); // 여기서 threaed list entry 조짐
 	if (t->wakeup <= ticks){	// 스레드가 일어날 시간이 되었는지 확인 --> 정확히는 t->wakeup으로 현시점 ticks
