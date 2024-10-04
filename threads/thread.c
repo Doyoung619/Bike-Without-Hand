@@ -139,30 +139,25 @@ thread_start (void) {
 	sema_down (&idle_started);
 }
 
-/* thread/thread.c */
 void
 thread_sleep (int64_t ticks)
 {
   struct thread *current_thread = thread_current();
-  // yield에서 자체복사함
   enum intr_level old_level;
-
+  Assert(!intr_context ());
   old_level = intr_disable ();	// 인터럽트 off
-  
-  ASSERT (current_thread != idle_thread);
+  // Copied from thread_yield code
 
   current_thread->wakeup = ticks;			// 일어날 시간을 저장
-  // sleep list 에 current_thread가 들어가야 함.
 
- // sleep list 에 current_thread 낑구기
+  // sleep list 에 current_thread 끼우기 구현 (list insert 참고)
   struct list_elem *before = sleep_list.tail.prev; 
   before->next = &current_thread->elem;             
   current_thread->elem.prev = before;              
   current_thread->elem.next = &sleep_list.tail;     
   sleep_list.tail.prev = &current_thread->elem;     
   
-  thread_block ();				// block 상태로 변경
-
+  thread_block ();				// block 상태로 변경 --> sleep 이니까!!
   intr_set_level (old_level);	// 인터럽트 실행하기
 }
 
@@ -286,9 +281,7 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 	// 만약에 current thread의 priority가, ready_list의 맨 앞의 (정렬됨)
-	// thread 보다 priority가 낮으면 CPU를 강탈하여 수여한다
-	// 이를 통해 thread 할당 시스템은 철저한 계급사회-먹던것도 강탈해가는
-	// 아주 극악무도한 카스트 제도임을 확증할수 있음.
+	// thread 보다 priority가 낮으면 먹던 CPU를 강탈하여 수여한다
 
 	if (!list_empty (&ready_list)) {
 		int current_threads_priority = thread_current () -> priority;
@@ -700,3 +693,4 @@ allocate_tid (void) {
 
 	return tid;
 }
+
