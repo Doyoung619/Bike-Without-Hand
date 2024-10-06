@@ -27,6 +27,7 @@
 #include "userprog/gdt.h"
 #include "userprog/syscall.h"
 #include "userprog/tss.h"
+
 #endif
 #include "tests/threads/tests.h"
 #ifdef VM
@@ -211,6 +212,10 @@ parse_options (char **argv) {
 
 		if (!strcmp (name, "-h"))
 			usage ();
+		/*
+		else if (!strcmp (name, "-mlfqs"))
+      		thread_mlfqs = true;
+		*/
 		else if (!strcmp (name, "-q"))
 			power_off_when_done = true;
 #ifdef FILESYS

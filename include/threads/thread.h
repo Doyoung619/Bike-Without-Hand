@@ -1,6 +1,11 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#define PRI_MAX 63               
+#define NICE_DEFAULT 0
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -91,11 +96,17 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
-	int64_t wakeup;						/* the value that should be wake up ticks value */
-
-
+	int64_t wakeup;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+
+	int init_priority;
+    int nice;
+  	int recent_cpu;
+	struct list_elem allelem;
+    struct lock *wait_on_lock;
+    struct list donations;
+    struct list_elem donation_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -122,8 +133,15 @@ void thread_start (void);
 void thread_sleep(int64_t ticks);
 void thread_awake(int64_t ticks);
 
+bool thread_compare_priority (struct list_elem *l, struct list_elem *s, void *aux UNUSED);
+bool thread_compare_donate_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED);
+
+void refresh_priority(void);
+void donate_priority (void);
+void thread_test_preemption (void);
 void thread_tick (void);
 void thread_print_stats (void);
+void remove_with_lock (struct lock *lock);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
@@ -147,5 +165,13 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
-
+/*
+void mlfqs_calculate_priority (struct thread *t);
+void mlfqs_calculate_recent_cpu (struct thread *t);
+void mlfqs_calculate_load_avg (void);
+void mlfqs_increment_recent_cpu (void);
+void mlfqs_recalculate_recent_cpu (void);
+void mlfqs_recalculate_priority (void);
+*/
+bool sema_compare_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED);
 #endif /* threads/thread.h */
