@@ -1,11 +1,6 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
-#define PRI_MAX 63               
-#define NICE_DEFAULT 0
-#define RECENT_CPU_DEFAULT 0
-#define LOAD_AVG_DEFAULT 0
-
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -90,23 +85,39 @@ typedef int tid_t;
  * only because they are mutually exclusive: only a thread in the
  * ready state is on the run queue, whereas only a thread in the
  * blocked state is on a semaphore wait list. */
+
+
+
+//add
+//default for numbers - mlfqs
+#define NICE_DEFAULT 0
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
+
 struct thread {
 	/* Owned by thread.c. */
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
-	int64_t wakeup;
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
-
-	int init_priority;
-    int nice;
-  	int recent_cpu;
-	struct list_elem allelem;
+	int64_t wakeup;					/* new value for*/
+	
+	/* Add variables for Donations */
     struct lock *wait_on_lock;
     struct list donations;
-    struct list_elem donation_elem;
+    struct list_elem d_elem;
+	int priority_before_donations;
+
+	//mlfqs
+	struct list_elem mlfqs_elem;
+	//add
+	int nice;
+	int recent_cpu;
+    
+
+	/* Shared between thread.c and synch.c. */
+	struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -133,45 +144,42 @@ void thread_start (void);
 void thread_sleep(int64_t ticks);
 void thread_awake(int64_t ticks);
 
-bool thread_compare_priority (struct list_elem *l, struct list_elem *s, void *aux UNUSED);
-bool thread_compare_donate_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED);
-
-void refresh_priority(void);
-void donate_priority (void);
-void thread_test_preemption (void);
 void thread_tick (void);
 void thread_print_stats (void);
-void remove_with_lock (struct lock *lock);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
-
+void thread_pre_empt (void);
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
-
+bool cmp_priority (struct list_elem *, struct list_elem *b, void *);
+bool cmp_priority_donate (const struct list_elem *, const struct list_elem *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+void do_donate (void);
+void donate_recursive(struct thread *);
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+int return_priority(struct list_elem *);
+
 void do_iret (struct intr_frame *tf);
-/*
-void mlfqs_calculate_priority (struct thread *t);
-void mlfqs_calculate_recent_cpu (struct thread *t);
-void mlfqs_calculate_load_avg (void);
-void mlfqs_increment_recent_cpu (void);
-void mlfqs_recalculate_recent_cpu (void);
-void mlfqs_recalculate_priority (void);
-*/
-bool sema_compare_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED);
+
+void mlfqs_priority_cal (struct thread *t);
+void mlfqs_recent_cpu_increment (void);
+void mlfqs_recent_cpu_cal (struct thread *t);
+void mlfqs_load_avg_cal (void);
+void mlfqs_recal_recent_cpu (void);
+void mlfqs_recal_priority (void);
+
 #endif /* threads/thread.h */
