@@ -5,6 +5,9 @@ The manual is available at https://casys-kaist.github.io/pintos-kaist/.
 push test
 
 fetch test
-another
+anothe
 
 branch test
+
+
+merge test
