@@ -324,7 +324,7 @@ cond_wait (struct condition *cond, struct lock *lock) {
    make sense to try to signal a condition variable within an
    interrupt handler. */
 bool 
-sema_compare_priority (const struct list_elem *l, const struct list_elem *s, void *aux UNUSED)
+sema_compare_priority (const struct list_elem *l, const struct list_elem *s, void *aux)
 {
 	struct semaphore_elem *l_sema = list_entry (l, struct semaphore_elem, elem);
 	struct semaphore_elem *s_sema = list_entry (s, struct semaphore_elem, elem);
