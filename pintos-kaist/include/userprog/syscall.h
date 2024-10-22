@@ -5,6 +5,8 @@
 #include "filesys/off_t.h"
 
 void syscall_init (void);
+void close(int fd);
+void exit(int status);
 
 
 #endif /* userprog/syscall.h */

@@ -10,8 +10,7 @@
 #include "vm/vm.h"
 #endif
 
-#define FDT_PAGES     3                     // test `multi-oom` 테스트용
-#define FDCOUNT_LIMIT FDT_PAGES * (1 << 9)  // 엔트리가 512개 인 이유: 페이지 크기 4kb / 파일 포인터 8byte
+#define MAX_FILE_NUM 128
 
 /* States in a thread's life cycle. */
 enum thread_status {

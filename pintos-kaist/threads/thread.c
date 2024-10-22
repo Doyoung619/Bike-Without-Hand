@@ -27,6 +27,8 @@
    Do not modify this value. */
 #define THREAD_BASIC 0xd42df210
 
+#define MAX_FILE_NUM 128
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -265,19 +267,6 @@ thread_create (const char *name, int priority,
 	t = palloc_get_page (PAL_ZERO);
 	if (t == NULL)
 		return TID_ERROR;
-	
-#ifdef USERPROG
-	/* IMPLELEMENTED IN PROJECT 2-3. Initializes data structures for file descriptor table. */
-	t->fd_table = (struct file **)palloc_get_page(PAL_ZERO);
-	if (t->fd_table == NULL)
-	{
-		palloc_free_page(t);
-		return TID_ERROR;
-	}
-	t->fd_table[0] = 0; /* For stdin. */
-	t->fd_table[1] = 1; /* For stdout. */
-#endif
-
 
 	/* Initialize thread. */
 	init_thread (t, name, priority);
@@ -295,6 +284,19 @@ thread_create (const char *name, int priority,
 	
 	tid = t->tid = allocate_tid ();
 
+#ifdef USERPROG
+	/* IMPLELEMENTED IN PROJECT 2-3. Initializes data structures for file descriptor table. */
+	t->fd_table = (struct file **)palloc_get_page(PAL_ZERO);
+	if (t->fd_table == NULL)
+	{
+		palloc_free_page(t);
+		return TID_ERROR;
+	}
+	for (int i = 2; i < MAX_FILE_NUM; i++)
+	{
+		t->fd_table[i] = NULL; /* Initializes all pointers to NULL. */
+	}
+#endif
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t) kernel_thread;

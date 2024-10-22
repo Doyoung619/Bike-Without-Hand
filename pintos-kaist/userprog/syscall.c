@@ -76,6 +76,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	// System call related to context change.
 	case SYS_EXIT:
+		exit((int)f->R.rdi);
 		break;
 	case SYS_FORK:
 		break;
@@ -89,4 +90,25 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	printf("system call!");
 	thread_exit();
 	*/
+}
+void exit(int status)
+{
+	/* Close all open files. */
+	struct thread *curr = thread_current();
+	for (int i = 2; i < MAX_FILE_NUM; i++)
+	{
+		if (curr->fd_table[i] != NULL)
+			close(i);
+	}
+	/* Call the thread_exit() function. */
+	curr->exit_status = status;
+	printf("%s: exit(%d)\n", thread_name());
+	thread_exit();
+}
+void close(int fd)
+{
+	if (fd < 2)
+		return; /* Ignore stdin and stdout. */
+	struct thread *curr = thread_current();
+	curr->fd_table[fd] = NULL; /* Will this cause memory leak? */
 }
