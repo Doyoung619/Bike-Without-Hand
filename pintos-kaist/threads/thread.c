@@ -265,6 +265,19 @@ thread_create (const char *name, int priority,
 	t = palloc_get_page (PAL_ZERO);
 	if (t == NULL)
 		return TID_ERROR;
+	
+#ifdef USERPROG
+	/* IMPLELEMENTED IN PROJECT 2-3. Initializes data structures for file descriptor table. */
+	t->fd_table = (struct file **)palloc_get_page(PAL_ZERO);
+	if (t->fd_table == NULL)
+	{
+		palloc_free_page(t);
+		return TID_ERROR;
+	}
+	t->fd_table[0] = 0; /* For stdin. */
+	t->fd_table[1] = 1; /* For stdout. */
+#endif
+
 
 	/* Initialize thread. */
 	init_thread (t, name, priority);
@@ -280,7 +293,6 @@ thread_create (const char *name, int priority,
 		}
 	}
 	
-
 	tid = t->tid = allocate_tid ();
 
 	/* Call the kernel_thread if it scheduled.
@@ -313,6 +325,12 @@ thread_block (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
 	thread_current ()->status = THREAD_BLOCKED;
 	schedule ();
+}
+
+void
+test_max_priority(void){
+	if (list_empty(&ready_list)) return;
+	if (!intr_context() && cmp_priority(list_front(&ready_list), &thread_current()->elem,NULL)) thread_yield();
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -639,6 +657,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority_before_donations = priority;
   	t->wait_on_lock = NULL;
   	list_init (&t->donations);
+	
 
 }
 

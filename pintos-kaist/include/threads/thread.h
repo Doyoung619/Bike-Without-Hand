@@ -5,10 +5,13 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
 
+#define FDT_PAGES     3                     // test `multi-oom` 테스트용
+#define FDCOUNT_LIMIT FDT_PAGES * (1 << 9)  // 엔트리가 512개 인 이유: 페이지 크기 4kb / 파일 포인터 8byte
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -122,6 +125,10 @@ struct thread {
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+	int exit_status;
+	struct file **fd_table;    /* Points to starting address of file descriptor table. */
+	int fd_idx;                /* File descriptor table index. */
+	struct file *running_file; /* Current file. */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -163,6 +170,7 @@ bool cmp_priority (struct list_elem *, struct list_elem *b, void *);
 bool cmp_priority_donate (const struct list_elem *, const struct list_elem *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
+void test_max_priority(void);
 
 void do_donate (void);
 void donate_recursive(struct thread *);
