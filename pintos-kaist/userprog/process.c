@@ -180,18 +180,20 @@ __do_fork (void *aux) {
 		dup->fd = tmp->fd;
 		list_push_back(current->fd_list, &dup->elem);
 	}
-	current->running_file = file_duplicate(parent->running_file);
+	// current->running_file = file_duplicate(parent->running_file); //수정
 
 	process_init ();
 
 	if_.R.rax = 0;
 	sema_up(&current->_do_fork_sema);
+	sema_down(&parent -> _do_fork_sema)
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
-error:
-	current->exit_status = TID_ERROR;
+error: //수정
 	sema_up(&current->_do_fork_sema);
+	current->exit_status = TID_ERROR;
+	sema_down(&parent->_do_fork_sema);
 	thread_exit ();
 }
 
@@ -204,7 +206,7 @@ process_exec (void *f_name) { // f_name should be allocated by page
 	int i, argc = 0;
 	char *argv[64];
 
-	unsigned long memsz = strlen(f_name) + 1;
+	// unsigned long memsz = strlen(f_name) + 1; //수정
 
 	parsing = strtok_r(f_name, " ", &save);
 	argv[argc] = parsing;
