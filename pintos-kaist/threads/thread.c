@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "list.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -11,7 +12,6 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-//add
 #include "threads/fixed-point.h"
 
 #ifdef USERPROG
@@ -294,6 +294,17 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+#ifdef USERPROG
+	t->fd_list = (struct list *) malloc(sizeof(struct list));
+	if (t->fd_list == NULL)
+		return TID_ERROR;
+
+	list_init(t->fd_list);
+
+	t->parent = thread_current();
+	list_push_back(&thread_current()->child_list, &t->child_elem);
+#endif
+
 	/* Add to run queue. */
 	thread_unblock (t);
 	// added. just pre-empt
@@ -511,6 +522,12 @@ thread_set_priority(int new_priority)
 }
 
 
+void
+test_max_priority(void){
+	if (list_empty(&ready_list)) return;
+	if (!intr_context () && cmp_priority(list_front(&ready_list),&thread_current()->elem,NULL)) thread_yield();
+}
+
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) {
@@ -640,6 +657,12 @@ init_thread (struct thread *t, const char *name, int priority) {
   	t->wait_on_lock = NULL;
   	list_init (&t->donations);
 
+#ifdef USERPROG
+	list_init(&t->child_list);
+	sema_init(&t->_do_fork_sema, 0);
+	sema_init(&t->wait_status_sema, 0);
+	sema_init(&t->exit_child_sema, 0);
+#endif
 }
 
 

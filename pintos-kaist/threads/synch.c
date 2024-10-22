@@ -123,7 +123,8 @@ sema_up (struct semaphore *sema)
   sema->value++;
   // Becuase sema-up is for wakes up one thread of those waitings,
   // we need to insert preemptions, too
-  thread_pre_empt ();
+  //thread_pre_empt ();
+  test_max_priority();
   intr_set_level (old_level);
 }
 
