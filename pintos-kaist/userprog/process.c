@@ -134,6 +134,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *       this function. */
 static void
 __do_fork (void *aux) {
+	
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
@@ -148,7 +149,6 @@ __do_fork (void *aux) {
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
-
 	process_activate (current);
 #ifdef VM
 	supplemental_page_table_init (&current->spt);
@@ -165,8 +165,10 @@ __do_fork (void *aux) {
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 	struct list_elem *e;
+	
 	for (e = list_begin(parent->fd_list);
 			e != list_end(parent->fd_list); e = list_next(e)) {
+	
 		struct fd_list_elem *tmp = list_entry(e, struct fd_list_elem, elem);
 		struct file *dup_file = file_duplicate(tmp->file_ptr);
 		if (dup_file == NULL)
@@ -180,6 +182,7 @@ __do_fork (void *aux) {
 		dup->fd = tmp->fd;
 		list_push_back(current->fd_list, &dup->elem);
 	}
+
 	current->running_file = file_duplicate(parent->running_file);
 
 	process_init ();
@@ -287,10 +290,11 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	
 	struct thread *child = NULL;
 	struct list_elem *e = NULL;
 	int child_status = 0;
-
+	/*
 	for (e = list_begin(&thread_current()->child_list);
 			e != list_end(&thread_current()->child_list); e = list_next(e)) {
 		child = list_entry(e, struct thread, child_elem);
@@ -304,6 +308,8 @@ process_wait (tid_t child_tid UNUSED) {
 			return child_status;
 		}
 	}
+	*/
+	for(int i = 0; i< 1000000000; i++);
 	return -1;
 }
 

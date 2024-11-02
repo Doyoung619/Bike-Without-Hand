@@ -295,6 +295,7 @@ thread_create (const char *name, int priority,
 	t->tf.eflags = FLAG_IF;
 
 #ifdef USERPROG
+	/*
 	t->fd_list = (struct list *) malloc(sizeof(struct list));
 	if (t->fd_list == NULL)
 		return TID_ERROR;
@@ -303,6 +304,17 @@ thread_create (const char *name, int priority,
 
 	t->parent = thread_current();
 	list_push_back(&thread_current()->child_list, &t->child_elem);
+	*/
+	t -> fd_list = palloc_get_multiple (PAL_ZERO, 3);
+	if (t -> fd_list == NULL) {
+		palloc_free_page (t);
+		return TID_ERROR;
+	}
+	// dummy data
+	t -> fd_list[0] = 1;
+	t -> fd_list[1] = 2;
+
+
 #endif
 
 	/* Add to run queue. */
