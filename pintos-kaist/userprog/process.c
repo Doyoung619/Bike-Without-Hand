@@ -138,7 +138,7 @@ __do_fork (void *aux) {
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = &parent->parent_if;
+	struct intr_frame *parent_if;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
@@ -164,49 +164,30 @@ __do_fork (void *aux) {
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	struct list_elem *e;
-	for (e = list_begin(parent->fd_list);
-			e != list_end(parent->fd_list); e = list_next(e)) {
-		struct fd_list_elem *tmp = list_entry(e, struct fd_list_elem, elem);
-		struct file *dup_file = file_duplicate(tmp->file_ptr);
-		if (dup_file == NULL)
-			goto error;
-		
-		struct fd_list_elem *dup = (struct fd_list_elem *) malloc(sizeof(struct fd_list_elem));
-		if (dup == NULL)
-			goto error;
-
-		dup->file_ptr = dup_file;
-		dup->fd = tmp->fd;
-		list_push_back(current->fd_list, &dup->elem);
-	}
-	// current->running_file = file_duplicate(parent->running_file); //수정
 
 	process_init ();
 
-	if_.R.rax = 0;
-	sema_up(&current->_do_fork_sema);
-	sema_down(&parent -> _do_fork_sema)
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
-error: //수정
-	sema_up(&current->_do_fork_sema);
-	current->exit_status = TID_ERROR;
-	sema_down(&parent->_do_fork_sema);
+error:
 	thread_exit ();
 }
-
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
+
+/*
 int
 process_exec (void *f_name) { // f_name should be allocated by page
+	char *file_name = f_name;
 	bool success;
+
+	// Project 2 : Added for parsing
 	char *parsing, *save;
 	int i, argc = 0;
 	char *argv[64];
 
-	// unsigned long memsz = strlen(f_name) + 1; //수정
+	unsigned long memsz = strlen(f_name) + 1; //수정
 
 	parsing = strtok_r(f_name, " ", &save);
 	argv[argc] = parsing;
@@ -216,29 +197,23 @@ process_exec (void *f_name) { // f_name should be allocated by page
 		argc = argc + 1;
 		argv[argc] = parsing;
 	}
+	// Project 2 : Added Done 
 
-	/* We cannot use the intr_frame in the thread structure.
-	 * This is because when current thread rescheduled,
-	 * it stores the execution information to the member. */
+	// We cannot use the intr_frame in the thread structure.
+	// This is because when current thread rescheduled,
+	// it stores the execution information to the member. 
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	/* We first kill the current context */
+	// We first kill the current context 
 	process_cleanup ();
 
-	#ifdef VM
-		supplemental_page_table_init(&thread_current()->spt);
-	#endif
-
-	/* And then load the binary */
+	// And then load the binary 
 	success = load(argv[0], &_if);
 
-	/* If load failed, quit. */
-	if (!success)
-		return -1;
-
+	// Argument Parsing 
 	int arg_len = 0;
 	char *arg_addr[64];
 	
@@ -268,9 +243,99 @@ process_exec (void *f_name) { // f_name should be allocated by page
 	_if.R.rdi = argc;
 	_if.R.rsi = _if.rsp + 8;
 
+	// If load failed, quit. 
+	if (!success)
+		return -1;
+
 	palloc_free_multiple (f_name, (memsz + PGSIZE - 1) / PGSIZE);
-	/* Start switched process. */
+
+	
+	// Start switched process. 
 	do_iret (&_if);
+	NOT_REACHED ();
+}*/
+
+process_exec (void *f_name) { // f_name should be allocated by page
+	char *file_name = f_name;
+	bool load_success;
+
+	/* Project 2 : Parsing Arguments */
+	char *token, *save_ptr;
+	int idx = 0, arg_count = 0;
+	char *arg_values[64];
+
+	unsigned long name_len = strlen(f_name) + 1; //수정
+
+	token = strtok_r(f_name, " ", &save_ptr);
+	arg_values[arg_count] = token;
+
+	// 기존 while문을 for문으로 변환
+	for (; token != NULL;) {
+		token = strtok_r(NULL, " ", &save_ptr);
+		arg_count++;
+		arg_values[arg_count] = token;
+	}
+	/* Project 2 : Parsing Done */
+
+	/* We cannot use the intr_frame in the thread structure.
+	 * This is because when current thread rescheduled,
+	 * it stores the execution information to the member. */
+	struct intr_frame intr_frame_setup;
+	intr_frame_setup.ds = intr_frame_setup.es = intr_frame_setup.ss = SEL_UDSEG;
+	intr_frame_setup.cs = SEL_UCSEG;
+	intr_frame_setup.eflags = FLAG_IF | FLAG_MBS;
+
+	/* We first kill the current context */
+	process_cleanup ();
+
+	/* And then load the binary */
+	load_success = load(arg_values[0], &intr_frame_setup);
+
+	/* Setting up stack with parsed arguments */
+	int total_arg_length = 0;
+	char *arg_addresses[64];
+	
+	// 기존 for문을 while문으로 변환
+	idx = arg_count - 1;
+	while (idx >= 0) {
+		int length = strlen(arg_values[idx]) + 1;
+		total_arg_length += length;
+		intr_frame_setup.rsp -= length;
+		memcpy(intr_frame_setup.rsp, arg_values[idx], length);
+		arg_addresses[idx] = intr_frame_setup.rsp;
+		idx--;
+	}
+
+	if ((total_arg_length % 8) != 0) {
+		intr_frame_setup.rsp -= 8 - (total_arg_length % 8);
+		*(uint8_t *) intr_frame_setup.rsp = 0;
+	}
+
+	intr_frame_setup.rsp -= 8;
+	memset(intr_frame_setup.rsp, 0, sizeof(char **));
+
+	// 기존 for문을 while문으로 변환
+	idx = arg_count - 1;
+	while (idx >= 0) {
+		intr_frame_setup.rsp -= 8;
+		memcpy(intr_frame_setup.rsp, &arg_addresses[idx], sizeof(char **));
+		idx--;
+	}
+
+	intr_frame_setup.rsp -= 8;
+	memset(intr_frame_setup.rsp, 0, sizeof(void *));
+
+	intr_frame_setup.R.rdi = arg_count;
+	intr_frame_setup.R.rsi = intr_frame_setup.rsp + 8;
+
+	/* If load failed, quit. */
+	if (!load_success)
+		return -1;
+
+	palloc_free_multiple (f_name, (name_len + PGSIZE - 1) / PGSIZE);
+
+	/* Start switched process. */
+	do_iret (&intr_frame_setup);
 	NOT_REACHED ();
 }
 
@@ -289,24 +354,28 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	struct thread *child = NULL;
-	struct list_elem *e = NULL;
-	int child_status = 0;
+	struct list_elem *e = list_begin(&thread_current()->child_list);
+	int status = -1;
 
-	for (e = list_begin(&thread_current()->child_list);
-			e != list_end(&thread_current()->child_list); e = list_next(e)) {
-		child = list_entry(e, struct thread, child_elem);
+	// child 리스트를 순회
+	while (e != list_end(&thread_current()->child_list)) {
+		struct thread *th = list_entry(e, struct thread, child_elem);
 
-		if (child->tid == child_tid) {
-			sema_down(&child->wait_status_sema);
+		if (th->tid == child_tid) {
+			// child 종료까지 대기
+			sema_down(&th->wait_status_sema);
+			// exit status 가져오고, 제거
+			status = th->exit_status;
+			list_remove(&th->child_elem);
 
-			child_status = child->exit_status;
-			list_remove(&child->child_elem);
-			sema_up(&child->exit_child_sema);
-			return child_status;
+			// 자원 해제
+			sema_up(&th->exit_child_sema);	
+			break;
 		}
+		e = list_next(e);  // 이동하기
 	}
-	return -1;
+
+	return status;
 }
 
 
@@ -468,7 +537,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
+	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)

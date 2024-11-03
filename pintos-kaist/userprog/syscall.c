@@ -83,7 +83,7 @@ syscall_init (void) {
 
 static void
 error_die (void) {
-	SyS_exit(-1);
+	exit(-1);
 }
 
 static bool
@@ -134,46 +134,55 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	memcpy(&thread_current()->parent_if, f, sizeof(struct intr_frame));
 	switch (f->R.rax) {
 		case SYS_HALT:
-			SyS_halt();
+			halt();
 			break;
 		case SYS_EXIT:
-			SyS_exit(f->R.rdi);
+			exit(f->R.rdi);
 			break;
-		case SYS_FORK:
-			f->R.rax = SyS_fork(f->R.rdi);
-			break;
-		case SYS_EXEC:
-			f->R.rax = SyS_exec(f->R.rdi);
-			break;
-		case SYS_WAIT:
-			f->R.rax = SyS_wait(f->R.rdi);
-			break;
+		
 		case SYS_CREATE:
-			f->R.rax = SyS_create(f->R.rdi, f->R.rsi);
+			f->R.rax = create(f->R.rdi, f->R.rsi);
 			break;
 		case SYS_REMOVE:
-			f->R.rax = SyS_remove(f->R.rdi);
+			f->R.rax = remove(f->R.rdi);
 			break;
+
+		/*
+		case SYS_FORK:
+			f->R.rax = fork(f->R.rdi);
+			break;
+		*/
+		case SYS_EXEC:
+			f->R.rax = exec(f->R.rdi);
+			break;
+
+		case SYS_WAIT:
+			f->R.rax = wait(f->R.rdi);
+			break;
+		
 		case SYS_OPEN:
-			f->R.rax = SyS_open(f->R.rdi);
+			f->R.rax = open(f->R.rdi);
 			break;
 		case SYS_FILESIZE:
-			f->R.rax = SyS_filesize(f->R.rdi);
+			f->R.rax = filesize(f->R.rdi);
 			break;
+		
 		case SYS_READ:
-			f->R.rax = SyS_read(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 		case SYS_WRITE:
-			f->R.rax = SyS_write(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
+		
+		case SYS_CLOSE:
+			close(f->R.rdi);
+			break;
+
 		case SYS_SEEK:
-			SyS_seek(f->R.rdi, f->R.rsi);
+			seek(f->R.rdi, f->R.rsi);
 			break;
 		case SYS_TELL:
-			f->R.rax = SyS_tell(f->R.rdi);
-			break;
-		case SYS_CLOSE:
-			SyS_close(f->R.rdi);
+			f->R.rax = tell(f->R.rdi);
 			break;
 	}
 }
@@ -181,22 +190,22 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 void check_address (void *addr) {
 	if (!is_user_vaddr(addr))
-		SyS_exit(-1);
+		exit(-1);
 }
 
-void SyS_halt (void) {
+void halt (void) {
 	power_off();
 }
 
-void SyS_exit (int status) {
+void exit (int status) {
 	struct thread *t = thread_current();
 	t->exit_status = status;
 
 	printf("%s: exit(%d)\n", t->name, status); 
 	thread_exit();
 }
-
-pid_t SyS_fork (const char *thread_name) {
+/*
+pid_t fork (const char *thread_name) {
 	if (!validate_string (thread_name))
 		error_die ();
 
@@ -227,8 +236,9 @@ pid_t SyS_fork (const char *thread_name) {
 	}	
 	return child_pid;
 }
+*/
 
-int SyS_exec (const char *cmd_line){
+int exec (const char *cmd_line){
 	if (!validate_string (cmd_line))
 		error_die ();
 	
@@ -244,17 +254,17 @@ int SyS_exec (const char *cmd_line){
 	return result;
 }
 
-int SyS_wait (pid_t pid) {
+int wait (pid_t pid) {
 	return process_wait((tid_t) pid);
 }
 
-bool SyS_create (const char *file, unsigned initial_size) {
+bool create (const char *file, unsigned initial_size) {
 	bool ret;
 	if (!validate_string (file) || !strcmp (file, ""))
 		error_die ();
 
 	if (file == NULL)
-		SyS_exit(-1);
+		exit(-1);
 
 	lock_acquire(&filesys_lock);
 	ret = filesys_create(file, initial_size);
@@ -262,7 +272,7 @@ bool SyS_create (const char *file, unsigned initial_size) {
 	return ret;
 }
 
-bool SyS_remove (const char *file) {
+bool remove (const char *file) {
 	bool ret;
 	if (!validate_string (file))
 		error_die ();
@@ -276,7 +286,7 @@ bool SyS_remove (const char *file) {
 	return ret;
 }
 
-int SyS_open (const char *file) {
+int open (const char *file) {
 	struct fd_list_elem *fd_elem = NULL;
 	struct file *file_open = NULL;
 
@@ -306,7 +316,7 @@ int SyS_open (const char *file) {
 	return fd_elem->fd;
 }
 
-int SyS_filesize (int fd) {
+int filesize (int fd) {
 	struct file *file_ptr = fd_to_file(fd);
 
 	if (file_ptr == NULL)
@@ -315,7 +325,7 @@ int SyS_filesize (int fd) {
 		return file_length(file_ptr);
 }
 
-int SyS_read (int fd, void *buffer, unsigned size) {
+int read (int fd, void *buffer, unsigned size) {
 	if (!validate_ptr (buffer, size, true))
 		error_die ();
 	unsigned long count = 0;
@@ -329,7 +339,7 @@ int SyS_read (int fd, void *buffer, unsigned size) {
 
 		return count; 
 	} else if (fd == 1) {
-		SyS_exit(-1);
+		exit(-1);
 		return -1;
 	} else {
 		struct file *fd_file = fd_to_file(fd);
@@ -337,7 +347,7 @@ int SyS_read (int fd, void *buffer, unsigned size) {
 		#ifdef VM
 		if (spt_find_page(&thread_current()->spt, buffer) != NULL
 			&& spt_find_page(&thread_current()->spt, buffer)->writable == 0)
-			SyS_exit(-1);
+			exit(-1);
 		#endif
 
 		if (fd_file != NULL) {
@@ -346,13 +356,13 @@ int SyS_read (int fd, void *buffer, unsigned size) {
 			lock_release(&filesys_lock);
 			return count;
 		} else {
-			SyS_exit(-1);
+			exit(-1);
 			return -1;
 		}
 	}
 }
 
-int SyS_write(int fd, const void *buffer, unsigned size) {
+int write(int fd, const void *buffer, unsigned size) {
 	int ret;
 	if (!validate_ptr (buffer, size, false))
 		error_die ();
@@ -367,7 +377,6 @@ int SyS_write(int fd, const void *buffer, unsigned size) {
 		return -1;
 	} else {
 		struct file *fd_file = fd_to_file(fd);
-		//if (fd_file == NULL || file_is_reg(fd_file) == false)
 		if (fd_file == NULL)
 			return -1;
 
@@ -378,7 +387,7 @@ int SyS_write(int fd, const void *buffer, unsigned size) {
 	}
 }
 
-void SyS_close (int fd) {
+void close (int fd) {
 	struct fd_list_elem * close_fd_list_elem = NULL;
 	struct list_elem *e;
 
@@ -392,7 +401,7 @@ void SyS_close (int fd) {
 	}
 
 	if (close_fd_list_elem == NULL) {
-		SyS_exit(-1);
+		exit(-1);
 	} else {
 		list_remove(e);
 		lock_acquire(&filesys_lock);
@@ -402,7 +411,7 @@ void SyS_close (int fd) {
 	}
 }
 
-void SyS_seek (int fd, unsigned position) {
+void seek (int fd, unsigned position) {
 	struct file *fd_file = fd_to_file(fd);
 	//if (fd_file == NULL || file_is_reg(fd_file) == false)
 	if (fd_file == NULL)
@@ -412,7 +421,7 @@ void SyS_seek (int fd, unsigned position) {
 	lock_release(&filesys_lock);
 }
 
-unsigned SyS_tell (int fd) {
+unsigned tell (int fd) {
 	struct file *fd_file = fd_to_file(fd);
 	unsigned ret = 0;
 	//if (fd_file == NULL || file_is_reg(fd_file) == false)
