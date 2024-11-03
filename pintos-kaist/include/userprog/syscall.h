@@ -17,20 +17,20 @@ struct fd_list_elem {
     struct file *file_ptr;
 };
 
-void SyS_halt (void);
-void SyS_exit (int status);
-pid_t SyS_fork (const char *thread_name);
-int SyS_exec (const char *cmd_line);
-int SyS_wait (pid_t pid);
-bool SyS_create (const char *file, unsigned initial_size);
-bool SyS_remove (const char *file);
-int SyS_open (const char *file);
-int SyS_filesize (int fd);
-int SyS_read (int fd, void *buffer, unsigned size);
-int SyS_write(int fd, const void *buffer, unsigned size);
-void SyS_seek (int fd, unsigned position);
-unsigned SyS_tell (int fd);
-void SyS_close (int fd);
+void halt (void);
+void exit (int status);
+pid_t fork (const char *thread_name);
+int exec (const char *cmd_line);
+int wait (pid_t pid);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int open (const char *file);
+int filesize (int fd);
+int read (int fd, void *buffer, unsigned size);
+int write(int fd, const void *buffer, unsigned size);
+void seek (int fd, unsigned position);
+unsigned tell (int fd);
+void close (int fd);
 
 
 #endif /* userprog/syscall.h */

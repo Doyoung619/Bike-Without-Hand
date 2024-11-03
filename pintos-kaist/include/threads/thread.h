@@ -124,15 +124,23 @@ struct thread {
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
 	int exit_status;
+	struct file *running_file;
+
+	/* file list */
 	struct list *fd_list;
+
+	/*struct for parent*/
+	struct thread *parent;
+	struct intr_frame parent_if;
+
+	/* struct for child */
 	struct list child_list;
 	struct list_elem child_elem;
-	struct intr_frame parent_if;
-	struct semaphore _do_fork_sema;
-	struct thread *parent;
-	struct file *running_file;
-	struct semaphore wait_status_sema;
 	struct semaphore exit_child_sema;
+	
+	/* Semaphore */
+	struct semaphore _do_fork_sema;
+	struct semaphore wait_status_sema;
 #endif
 
 #ifdef VM
